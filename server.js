@@ -1,5 +1,4 @@
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 
 const app = express();
@@ -7,9 +6,6 @@ const PORT = process.env.PORT || 3000;
 
 // Configuration: Set your redirect URL here
 const REDIRECT_URL = process.env.REDIRECT_URL || 'https://www.google.com';
-
-// Log file path
-const LOG_FILE = path.join(__dirname, 'ip-logs.txt');
 
 // Middleware to parse JSON
 app.use(express.json());
@@ -42,14 +38,6 @@ app.post('/log', (req, res) => {
 
   // Log to console (visible in Vercel dashboard)
   console.log(`🔍 ${logEntry}`);
-
-  // Append to log file (works locally, temporary on Vercel)
-  fs.appendFile(LOG_FILE, logEntry + '\n', (err) => {
-    if (err) {
-      console.error('Error writing to log file:', err);
-    }
-  });
-
   console.log(`↪️  Redirecting to: ${REDIRECT_URL}`);
 
   // Send redirect URL back to client
@@ -60,7 +48,7 @@ app.post('/log', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Redirection app running on port ${PORT}`);
   console.log(`📍 Redirecting all traffic to: ${REDIRECT_URL}`);
-  console.log(`📝 Logging IPs and locations to console and file`);
+  console.log(`📝 Logging IPs and locations to console only`);
   console.log(`\n💡 To change redirect URL, set REDIRECT_URL environment variable`);
   console.log(`   Example: REDIRECT_URL=https://example.com npm start\n`);
 });
