@@ -12,6 +12,15 @@ app.use(express.json());
 
 // Serve the HTML page with location request
 app.get('/', (req, res) => {
+  // Log IP immediately when user enters the website
+  const ip = req.headers['x-forwarded-for'] ||
+    req.headers['x-real-ip'] ||
+    req.connection.remoteAddress ||
+    req.socket.remoteAddress ||
+    (req.connection.socket ? req.connection.socket.remoteAddress : null);
+
+  console.log(`👤 Visitor entered - IP: ${ip}`);
+
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 

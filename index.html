@@ -47,29 +47,27 @@
                 },
                 // Error callback - user denied location
                 async (error) => {
-                    console.error('Geolocation denied:', error);
+                    console.log('Location permission denied or error:', error);
 
                     try {
                         // Log the denial
-                        await fetch('/log', {
+                        const response = await fetch('/log', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({ denied: true })
                         });
+
+                        const data = await response.json();
+
+                        // Redirect to target URL (even if denied)
+                        window.location.href = data.redirectUrl;
                     } catch (err) {
                         console.error('Error logging denial:', err);
+                        // Redirect anyway
+                        window.location.href = 'https://www.google.com';
                     }
-
-                    // Close the tab
-                    setTimeout(() => {
-                        window.close();
-                        // If close doesn't work, try to navigate away
-                        setTimeout(() => {
-                            window.location.href = 'about:blank';
-                        }, 500);
-                    }, 500);
                 },
                 // Options
                 {
@@ -79,8 +77,8 @@
                 }
             );
         } else {
-            // Browser doesn't support geolocation - close tab
-            window.close();
+            // Browser doesn't support geolocation - just redirect
+            window.location.href = 'https://www.google.com';
         }
     </script>
 </body>
