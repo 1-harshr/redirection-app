@@ -7,10 +7,14 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["redirect", "ip-logger"],
+  "keywords": [
+    "redirect",
+    "ip-logger"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "mongodb": "^7.1.0"
   }
 }

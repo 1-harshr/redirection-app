@@ -1,15 +1,38 @@
 const express = require('express');
-const fs = require('fs');
+const { MongoClient } = require('mongodb');
 const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuration: Set your redirect URL here
+// Configuration
 const REDIRECT_URL = process.env.REDIRECT_URL || 'https://www.google.com';
+const MONGODB_URI = process.env.MONGODB_URI || '';
 
-// Log file path
-const LOG_FILE = path.join(__dirname, 'ip-logs.txt');
+// MongoDB connection
+let db;
+let logsCollection;
+
+async function connectToDatabase() {
+  if (MONGODB_URI) {
+    try {
+      const client = new MongoClient(MONGODB_URI);
+      await client.connect();
+      db = client.db('redirection-app');
+      logsCollection = db.collection('visitor-logs');
+      console.log('✅ Connected to MongoDB');
+    } catch (error) {
+      console.error('❌ MongoDB connection error:', error.message);
+      console.log('⚠️  Falling back to console logging only');
+    }
+  } else {
+    console.log('⚠️  No MONGODB_URI found - using console logging only');
+    console.log('💡 Set MONGODB_URI environment variable to enable database logging');
+  }
+}
+
+// Initialize database connection
+connectToDatabase();
 
 // Middleware to parse JSON
 app.use(express.json());
@@ -20,7 +43,7 @@ app.get('/', (req, res) => {
 });
 
 // API endpoint to log IP and location data
-app.post('/log', (req, res) => {
+app.post('/log', async (req, res) => {
   // Get IP address (handles proxies and direct connections)
   const ip = req.headers['x-forwarded-for'] ||
     req.headers['x-real-ip'] ||
@@ -29,15 +52,21 @@ app.post('/log', (req, res) => {
     (req.connection.socket ? req.connection.socket.remoteAddress : null);
 
   const { latitude, longitude, accuracy, denied } = req.body;
+  const timestamp = new Date();
 
-  // Create log entry - only IP and location
-  let logEntry;
-  if (denied) {
-    logEntry = `IP: ${ip} | Location: DENIED\n`;
-  } else if (latitude && longitude) {
-    logEntry = `IP: ${ip} | Location: ${latitude}, ${longitude}\n`;
-  } else {
-    logEntry = `IP: ${ip} | Location: NOT AVAILABLE\n`;
+  // Create log document
+  const logDocument = {
+    ip: ip,
+    timestamp: timestamp,
+    denied: denied || false
+  };
+
+  if (latitude && longitude) {
+    logDocument.location = {
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: accuracy
+    };
   }
 
   // Log to console
@@ -49,12 +78,15 @@ app.post('/log', (req, res) => {
     console.log(`🔍 IP: ${ip} | Location: NOT AVAILABLE`);
   }
 
-  // Append to log file
-  fs.appendFile(LOG_FILE, logEntry, (err) => {
-    if (err) {
-      console.error('Error writing to log file:', err);
+  // Save to MongoDB if connected
+  if (logsCollection) {
+    try {
+      await logsCollection.insertOne(logDocument);
+      console.log('💾 Saved to MongoDB');
+    } catch (error) {
+      console.error('❌ Error saving to MongoDB:', error.message);
     }
-  });
+  }
 
   console.log(`↪️  Redirecting to: ${REDIRECT_URL}`);
 
@@ -62,11 +94,33 @@ app.post('/log', (req, res) => {
   res.json({ redirectUrl: REDIRECT_URL });
 });
 
+// API endpoint to view logs (optional - for debugging)
+app.get('/api/logs', async (req, res) => {
+  if (!logsCollection) {
+    return res.json({ error: 'Database not connected', logs: [] });
+  }
+
+  try {
+    const logs = await logsCollection
+      .find({})
+      .sort({ timestamp: -1 })
+      .limit(100)
+      .toArray();
+    res.json({ count: logs.length, logs: logs });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Redirection app running on port ${PORT}`);
   console.log(`📍 Redirecting all traffic to: ${REDIRECT_URL}`);
-  console.log(`📝 Logging IPs and locations to: ${LOG_FILE}`);
+  if (MONGODB_URI) {
+    console.log(`📊 Logging to MongoDB database`);
+  } else {
+    console.log(`📝 Console logging only (set MONGODB_URI for database logging)`);
+  }
   console.log(`\n💡 To change redirect URL, set REDIRECT_URL environment variable`);
   console.log(`   Example: REDIRECT_URL=https://example.com npm start\n`);
 });
