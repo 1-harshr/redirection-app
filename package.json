@@ -1,0 +1,16 @@
+{
+  "name": "redirection-app",
+  "version": "1.0.0",
+  "description": "A simple app that logs IP addresses and redirects to a specified website",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["redirect", "ip-logger"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
