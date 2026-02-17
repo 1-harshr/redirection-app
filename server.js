@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { MongoClient } = require('mongodb');
 
 const app = express();
@@ -54,7 +55,13 @@ app.get('/', (req, res) => {
   const ip = getClientIP(req);
   console.log(`👤 Visitor entered - IP: ${ip}`);
 
-  res.sendFile(path.join(__dirname, 'index.html'));
+  // Read and inject REDIRECT_URL into the HTML
+  let html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+
+  // Replace all occurrences of google.com with the configured REDIRECT_URL
+  html = html.replace(/https:\/\/www\.google\.com/g, REDIRECT_URL);
+
+  res.send(html);
 });
 
 // API endpoint to log IP and location data
