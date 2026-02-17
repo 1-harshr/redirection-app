@@ -95,8 +95,8 @@ app.post('/log', async (req, res) => {
     }
 
     // Log to console (visible in Vercel dashboard)
-    console.log(`🔍 ${consoleLogEntry}`);
-    console.log(`↪️  Redirecting to: ${REDIRECT_URL}`);
+    console.log(`Location is  ${consoleLogEntry}`);
+    console.log(` Redirecting to: ${REDIRECT_URL}`);
 
     // Save to MongoDB if connected
     if (logsCollection) {
