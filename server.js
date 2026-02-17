@@ -29,8 +29,11 @@ app.get('/', (req, res) => {
 
   try {
     let html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-    // Replace all occurrences of google.com with the configured REDIRECT_URL
-    html = html.replace(/https:\/\/www\.google\.com/g, REDIRECT_URL);
+
+    // Replace placeholder with the configured REDIRECT_URL
+    console.log(`🌐 Serving redirect at ${new Date().toISOString()} to: ${REDIRECT_URL}`);
+    html = html.replace(/{{REDIRECT_URL}}/g, REDIRECT_URL);
+
     res.send(html);
   } catch (error) {
     console.error('❌ Error reading index.html:', error);

