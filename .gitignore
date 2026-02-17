@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 
+# Environment variables (contains sensitive MongoDB credentials)
+.env
 
 # Log files
 ip-logs.txt
@@ -10,3 +12,4 @@ ip-logs.txt
 .DS_Store
 Thumbs.db
 .vercel
+

