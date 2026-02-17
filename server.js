@@ -26,11 +26,6 @@ async function connectToMongoDB() {
     await client.connect();
     db = client.db('redirection-logs');
     logsCollection = db.collection('visitor-logs');
-
-    // Create indexes for better query performance
-    await logsCollection.createIndex({ timestamp: -1 });
-    await logsCollection.createIndex({ ip: 1 });
-
     console.log('✅ Connected to MongoDB - logs will be persisted');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
@@ -106,6 +101,8 @@ app.post('/log', async (req, res) => {
       } catch (dbError) {
         console.error('❌ Error saving to MongoDB:', dbError.message);
       }
+    } else {
+      console.log('MongoDB not connected - logs will only appear in console');
     }
 
     // Send redirect URL back to client
